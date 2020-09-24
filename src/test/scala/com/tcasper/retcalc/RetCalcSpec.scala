@@ -1,10 +1,11 @@
 package com.tcasper.retcalc
 
 import org.scalactic.{Equality, TolerantNumerics, TypeCheckedTripleEquals}
+import org.scalatest.EitherValues
 import org.scalatest.matchers.should
 import org.scalatest.wordspec._
 
-class RetCalcSpec extends AnyWordSpec with should.Matchers with TypeCheckedTripleEquals {
+class RetCalcSpec extends AnyWordSpec with should.Matchers with TypeCheckedTripleEquals with EitherValues {
 
   implicit val doubleEquality: Equality[Double] =
     TolerantNumerics.tolerantDoubleEquality(0.0001)
@@ -42,28 +43,30 @@ class RetCalcSpec extends AnyWordSpec with should.Matchers with TypeCheckedTripl
         RetCalc.simulatePlan(
           returns = FixedReturns(0.04), params,
           nbOfMonthsSavings = 25 * 12)
-      capitalAtRetirement should === (541267.1990)
-      capitalAfterDeath should === (309867.5316)
+      capitalAtRetirement should ===(541267.1990)
+      capitalAfterDeath should ===(309867.5316)
     }
   }
 
   "RetCalc.nbOfMonthsSaving" should {
     "calculate how long I need to save before I can retire" in {
-      val actual = RetCalc.nbOfMonthsSaving(
-        FixedReturns(0.04), params)
+      val actual = RetCalc.nbOfMonthsSaving(params, FixedReturns(0.04)).right.value
       val expected = 23 * 12 + 1
       actual should ===(expected)
     }
     "not crash if the resulting nbOfMonths is very high" in {
       val actual = RetCalc.nbOfMonthsSaving(
-        FixedReturns(0.04), params)
+        params = RetCalcParams(
+          nbOfMonthsInRetirement = 40 * 12,
+          netIncome = 3000, currentExpenses = 2999, initialCapital = 0),
+        returns = FixedReturns(0.01)).right.value
       val expected = 8280
       actual should ===(expected)
     }
     "not loop forever if I enter bad parameters" in {
       val actual = RetCalc.nbOfMonthsSaving(
-        FixedReturns(0.04), params)
-      actual should === (Int.MaxValue)
+        params.copy(netIncome = 1000), FixedReturns(0.04)).left.value
+      actual should ===(RetCalcError.MoreExpensesThanIncome(1000, 2000))
     }
   }
 }
